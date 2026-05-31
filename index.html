@@ -1153,7 +1153,11 @@ function submitForm() {
   // Google Sheets
   const SHEET_WEBHOOK = document.getElementById('sheetWebhookUrl').value.trim();
   if (SHEET_WEBHOOK) {
-    const payload = { timestamp: new Date().toLocaleString('vi-VN'), eventType: typeMap[typeVal]||typeVal, organizer: document.getElementById('organizer').value.trim(), email: document.getElementById('email').value.trim(), dateTime: dateStr, duration: document.getElementById('duration').value+' giờ', location: locDisplay, locationAddr: selectedPlace ? selectedPlace.secondary : '', locationNotes: document.getElementById('locationNotes').value.trim(), guests, budget: document.getElementById('budget').value, currency, styles, specialReqs: document.getElementById('specialReqs').value.trim(), inviteCount: invitedEmails.length, inviteEmails: invitedEmails.map(e => (e.name ? e.name+' <'+e.email+'>' : e.email)).join('\n') };
+    const d = rawDate ? new Date(rawDate) : null;
+    const pad = n => String(n).padStart(2, '0');
+    const eventDateOnly = d ? `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}` : '';
+    const eventTimeOnly = d ? `${pad(d.getHours())}:${pad(d.getMinutes())}` : '';
+    const payload = { timestamp: new Date().toLocaleString('vi-VN'), eventType: typeMap[typeVal]||typeVal, organizer: document.getElementById('organizer').value.trim(), email: document.getElementById('email').value.trim(), eventDate: eventDateOnly, eventTime: eventTimeOnly, dateTime: dateStr, duration: document.getElementById('duration').value+' giờ', location: locDisplay, locationAddr: selectedPlace ? selectedPlace.secondary : '', locationNotes: document.getElementById('locationNotes').value.trim(), guests, budget: document.getElementById('budget').value, currency, styles, specialReqs: document.getElementById('specialReqs').value.trim(), inviteCount: invitedEmails.length, inviteEmails: invitedEmails.map(e => (e.name ? e.name+' <'+e.email+'>' : e.email)).join('\n') };
     fetch(`${SHEET_WEBHOOK}?data=${encodeURIComponent(JSON.stringify(payload))}`, { method: 'GET', mode: 'no-cors' }).catch(() => {});
   }
 
