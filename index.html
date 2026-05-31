@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>EventPlan — Plan Your Perfect Event</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Manrope:wght@700;800&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #FFFFFF;
+  --surface: #FFFFFF;
+  --surface2: #F8F9FA;
+  --border: #E8EAED;
+  --border-focus: #1DB954;
+  --text: #0D0D0D;
+  --text-muted: #6B7280;
+  --text-hint: #9CA3AF;
+  --accent: #1DB954;
+  --accent-light: #F0FBF4;
+  --accent-dark: #15803D;
+  --btn-bg: #0D0D0D;
+  --danger: #DC2626;
+  --radius: 14px;
+  --radius-sm: 9px;
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.10);
+}
+
+html, body { height: 100%; }
+body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+/* ── Navbar ── */
+.navbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+  background: rgba(255,255,255,0.96);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 1rem; height: 58px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+@media (min-width: 600px) { .navbar { padding: 0 2rem; } }
+.nav-logo { display: flex; align-items: center; gap: 9px; font-family: 'Manrope', sans-serif; font-weight: 800; font-size: 17px; color: var(--text); text-decoration: none; }
+.nav-logo-dot { width: 28px; height: 28px; background: var(--btn-bg); border-radius: 7px; display: flex; align-items: center; justify-content: center; }
+.nav-links { display: flex; align-items: center; gap: 2rem; }
+.nav-links a { font-size: 14px; font-weight: 500; color: var(--text-muted); text-decoration: none; transition: color .15s; }
+.nav-links a:hover { color: var(--text); }
+.nav-slogan { font-size: 13px; font-weight: 500; color: var(--text-muted); letter-spacing: .01em; position: absolute; left: 50%; transform: translateX(-50%); white-space: nowrap; }
+.nav-about-btn { display: flex; align-items: center; gap: 6px; padding: 7px 16px; background: var(--surface2); color: var(--text-muted); border: 1.5px solid var(--border); border-radius: 8px; font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; text-decoration: none; transition: all .15s; }
+.nav-about-btn:hover { background: var(--accent-light); color: var(--accent-dark); border-color: var(--accent); }
+@media (max-width: 600px) { .nav-slogan { display: none; } }
+
+/* ── Step progress bar (top) ── */
+.step-progress {
+  position: fixed; top: 58px; left: 0; right: 0; z-index: 199;
+  background: white; border-bottom: 1px solid var(--border);
+  padding: 0 0.75rem;
+  height: 52px; display: flex; align-items: center; gap: 0;
+}
+@media (min-width: 600px) { .step-progress { padding: 0 2rem; } }
+.step-dot-wrap {
+  display: flex; align-items: center; flex: 1;
+}
+.step-dot {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  cursor: pointer; position: relative;
+}
+.step-dot-circle {
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 2px solid var(--border); background: white;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 600; color: var(--text-hint);
+  transition: all .25s;
+  position: relative; z-index: 1;
+}
+.step-dot.done .step-dot-circle {
+  background: var(--accent); border-color: var(--accent); color: white;
+}
+.step-dot.active .step-dot-circle {
+  background: var(--btn-bg); border-color: var(--btn-bg); color: white;
+  box-shadow: 0 0 0 4px rgba(0,0,0,0.08);
+}
+.step-dot-label {
+  font-size: 10px; font-weight: 500; color: var(--text-hint);
+  white-space: nowrap; transition: color .2s;
+  display: none;
+}
+@media (min-width: 520px) { .step-dot-label { display: block; } }
+.step-dot.active .step-dot-label { color: var(--text); }
+.step-dot.done .step-dot-label { color: var(--accent-dark); }
+
+.step-connector {
+  flex: 1; height: 2px; background: var(--border);
+  transition: background .3s; margin: 0 4px; margin-bottom: 18px;
+}
+.step-connector.done { background: var(--accent); }
+
+/* ── Main wizard area ── */
+.wizard-outer {
+  margin-top: 110px;
+  flex: 1; position: relative;
+}
+.wizard-viewport {
+  width: 100%;
+}
+.wizard-step {
+  display: none;
+  width: 100%; padding: 0;
+}
+.wizard-step.active {
+  display: block;
+}
+.step-inner {
+  max-width: 600px; margin: 0 auto;
+  padding: 2rem 1rem calc(5rem + env(safe-area-inset-bottom));
+  animation: fadeUp .32s ease both;
+}
+@media (min-width: 600px) {
+  .step-inner { padding: 2.5rem 1.5rem 6rem; }
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.step-eyebrow {
+  font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--accent); margin-bottom: .6rem;
+}
+.step-title {
+  font-family: 'Manrope', sans-serif; font-weight: 800;
+  font-size: clamp(1.6rem, 5vw, 2.1rem); line-height: 1.18;
+  color: var(--text); margin-bottom: .5rem;
+}
+.step-sub { font-size: 14px; color: var(--text-muted); margin-bottom: 2rem; line-height: 1.6; }
+
+/* ── Inputs ── */
+label { display: block; font-size: 13px; font-weight: 500; color: var(--text-muted); margin-bottom: 6px; }
+label .req { color: var(--accent); }
+
+input[type="text"], input[type="email"], input[type="number"],
+input[type="datetime-local"], select, textarea {
+  width: 100%; padding: 13px 16px;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  font-family: 'Inter', sans-serif; font-size: 14px; color: var(--text);
+  background: var(--surface); outline: none;
+  transition: border-color .2s, box-shadow .2s;
+  appearance: none; -webkit-appearance: none;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(29,185,84,.12);
+}
+input::placeholder, textarea::placeholder { color: var(--text-hint); }
+select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239CA3AF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 14px center; padding-right: 40px; cursor: pointer;
+}
+textarea { resize: vertical; min-height: 88px; line-height: 1.6; }
+
+.field-group { margin-bottom: 1.25rem; }
+.field-group:last-child { margin-bottom: 0; }
+.field-hint { font-size: 12px; color: var(--text-hint); margin-top: 5px; }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+@media (max-width: 580px) { .field-row { grid-template-columns: 1fr; } }
+
+/* ── Chips ── */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 16px; border-radius: 24px;
+  border: 1.5px solid var(--border); font-size: 13px; font-weight: 500;
+  color: var(--text-muted); background: var(--surface);
+  cursor: pointer; transition: all .15s; user-select: none;
+}
+.chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+.chip.active { border-color: var(--accent); background: var(--accent-light); color: var(--accent-dark); }
+
+/* ── Counter ── */
+.counter-wrap { display: flex; align-items: center; border: 1.5px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; width: fit-content; min-width: 180px; }
+.counter-wrap:focus-within { border-color: var(--border-focus); box-shadow: 0 0 0 3px rgba(29,185,84,.12); }
+.counter-btn { width: 46px; height: 48px; background: var(--surface2); border: none; font-size: 22px; color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .15s; flex-shrink: 0; }
+.counter-btn:hover { background: var(--accent-light); color: var(--accent-dark); }
+.counter-val { flex: 1; text-align: center; font-size: 16px; font-weight: 600; border: none; outline: none; background: transparent; color: var(--text); padding: 0 4px; }
+
+/* ── Budget ── */
+.budget-row { display: flex; gap: 8px; }
+.currency-select { width: 100px; flex-shrink: 0; }
+.budget-input { flex: 1; }
+
+/* ── Location ── */
+.location-search { position: relative; margin-bottom: 10px; }
+.location-search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-hint); pointer-events: none; }
+.location-search input { padding-left: 42px; padding-right: 44px; }
+.location-clear { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--text-hint); cursor: pointer; padding: 4px; border-radius: 4px; display: none; transition: color .15s; }
+.location-clear:hover { color: var(--text); }
+.location-clear.visible { display: flex; align-items: center; }
+.autocomplete-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow-lg); z-index: 1000; max-height: 220px; overflow-y: auto; display: none; }
+.autocomplete-list.open { display: block; }
+.autocomplete-item { padding: 10px 14px; font-size: 13px; color: var(--text); cursor: pointer; display: flex; align-items: flex-start; gap: 10px; border-bottom: 1px solid var(--border); transition: background .1s; }
+.autocomplete-item:last-child { border-bottom: none; }
+.autocomplete-item:hover { background: var(--surface2); }
+.autocomplete-icon { color: var(--accent); margin-top: 1px; flex-shrink: 0; }
+.autocomplete-main { font-weight: 500; }
+.autocomplete-sub { font-size: 12px; color: var(--text-hint); margin-top: 1px; }
+.selected-location { display: none; align-items: center; gap: 10px; padding: 10px 14px; background: var(--accent-light); border: 1.5px solid rgba(29,185,84,.3); border-radius: var(--radius-sm); margin-top: 10px; font-size: 13px; }
+.selected-location.visible { display: flex; }
+.sel-loc-icon { color: var(--accent); flex-shrink: 0; }
+.sel-loc-text { flex: 1; }
+.sel-loc-name { font-weight: 600; color: var(--text); }
+.sel-loc-addr { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.sel-loc-change { background: none; border: none; font-size: 12px; color: var(--accent); cursor: pointer; text-decoration: underline; flex-shrink: 0; }
+.api-notice { font-size: 12px; color: var(--text-hint); margin-top: 8px; display: flex; align-items: center; gap: 6px; }
+
+/* ── Map ── */
+.map-container { border-radius: var(--radius-sm); border: 1.5px solid var(--border); overflow: hidden; height: 260px; background: #F1F3F4; position: relative; margin-top: 12px; }
+#map { width: 100%; height: 100%; }
+.leaflet-container { font-family: 'Inter', sans-serif; }
+.map-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: var(--text-muted); font-size: 14px; z-index: 999; background: #F1F3F4; pointer-events: none; }
+.map-placeholder-icon { width: 48px; height: 48px; background: white; border-radius: 50%; border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 22px; }
+.map-placeholder.hidden { display: none; }
+.my-location-btn { position: absolute; bottom: 12px; right: 12px; z-index: 999; width: 36px; height: 36px; background: white; border: 1.5px solid var(--border); border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,.1); transition: all .15s; color: var(--text-muted); }
+.my-location-btn:hover { background: var(--accent-light); color: var(--accent); border-color: var(--accent); }
+.my-location-btn.loading { animation: pulse-btn 1s ease infinite; pointer-events: none; }
+@keyframes pulse-btn { 0%,100%{opacity:1}50%{opacity:.4} }
+.gps-banner { display: none; align-items: center; gap: 8px; padding: 8px 12px; background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: var(--radius-sm); font-size: 12px; color: #1D4ED8; margin-bottom: 10px; }
+.gps-banner.visible { display: flex; }
+.gps-banner svg { flex-shrink: 0; color: #3B82F6; }
+.gps-banner-close { margin-left: auto; background: none; border: none; cursor: pointer; color: #1D4ED8; font-size: 15px; }
+
+/* ── Invitation / Toggle ── */
+.toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 4px 0 16px; }
+.toggle-label { font-size: 14px; color: var(--text); font-weight: 500; }
+.toggle-sub { font-size: 12px; color: var(--text-hint); margin-top: 2px; }
+.toggle-switch { position: relative; width: 44px; height: 24px; flex-shrink: 0; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-track { position: absolute; inset: 0; background: var(--border); border-radius: 12px; cursor: pointer; transition: background .2s; }
+.toggle-track::after { content: ''; position: absolute; left: 3px; top: 3px; width: 18px; height: 18px; background: white; border-radius: 50%; transition: transform .2s; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+.toggle-switch input:checked + .toggle-track { background: var(--accent); }
+.toggle-switch input:checked + .toggle-track::after { transform: translateX(20px); }
+.invite-panel { display: none; animation: slideDown .2s ease; }
+.invite-panel.open { display: block; }
+@keyframes slideDown { from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)} }
+.email-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.email-entry { display: flex; align-items: center; gap: 8px; background: var(--surface2); border: 1.5px solid var(--border); border-radius: var(--radius-sm); padding: 4px 4px 4px 12px; transition: border-color .15s; }
+.email-entry:focus-within { border-color: var(--border-focus); background: var(--surface); }
+.email-entry-input { flex: 1; border: none !important; border-right: 1.5px solid var(--border) !important; border-radius: 0 !important; background: transparent !important; padding: 7px 10px 7px 0 !important; font-size: 14px; box-shadow: none !important; outline: none; }
+.email-entry-name { width: 110px; border: none !important; border-radius: 0 !important; background: transparent !important; padding: 7px 0 7px 8px !important; font-size: 13px; color: var(--text-muted); box-shadow: none !important; outline: none; }
+.email-entry-remove { width: 30px; height: 30px; border: none; background: none; color: var(--text-hint); cursor: pointer; border-radius: 6px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all .15s; }
+.email-entry-remove:hover { background: #FEE2E2; color: var(--danger); }
+.add-email-btn { display: flex; align-items: center; gap: 8px; padding: 9px 14px; border: 1.5px dashed var(--border); border-radius: var(--radius-sm); background: none; color: var(--text-muted); font-family: 'Inter', sans-serif; font-size: 13px; cursor: pointer; width: 100%; transition: all .15s; }
+.add-email-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+.invite-count-badge { display: none; background: var(--accent); color: white; border-radius: 10px; padding: 1px 8px; font-size: 11px; font-weight: 600; margin-left: 6px; }
+.invite-count-badge.visible { display: inline-block; }
+.invite-paste-hint { font-size: 12px; color: var(--text-hint); margin-top: 8px; line-height: 1.5; }
+
+/* ── Errors ── */
+.error-msg { font-size: 12px; color: var(--danger); margin-top: 5px; display: none; }
+.field-error input, .field-error select, .field-error textarea { border-color: var(--danger) !important; }
+.field-error .error-msg { display: block; }
+
+/* ── Email entry: email (left) + name (right) two-column ── */
+.email-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+.email-entry { display: flex; align-items: stretch; gap: 0; background: var(--surface2); border: 1.5px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; transition: border-color .15s; }
+.email-entry:focus-within { border-color: var(--border-focus); background: var(--surface); box-shadow: 0 0 0 3px rgba(29,185,84,.12); }
+.email-entry-input { flex: 1; width: auto !important; min-width: 0; border: none !important; border-right: 1.5px solid var(--border) !important; border-radius: 0 !important; background: transparent !important; padding: 11px 12px !important; font-size: 14px; box-shadow: none !important; outline: none; }
+.email-entry-name { width: 140px !important; flex-shrink: 0; border: none !important; border-right: 1.5px solid var(--border) !important; border-radius: 0 !important; background: transparent !important; padding: 11px 12px !important; font-size: 13px; color: var(--text-muted); box-shadow: none !important; outline: none; }
+.email-entry-remove { width: 36px; flex-shrink: 0; border: none; background: none; color: var(--text-hint); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .15s; }
+.email-entry-remove:hover { background: #FEE2E2; color: var(--danger); }
+.email-entry-header { display: flex; gap: 0; margin-bottom: 4px; padding: 0 2px; }
+.email-entry-header span { font-size: 11px; font-weight: 600; color: var(--text-hint); text-transform: uppercase; letter-spacing: .06em; padding: 0 12px; }
+.email-entry-header .col-email { flex: 1; }
+.email-entry-header .col-name { width: 140px; flex-shrink: 0; }
+
+/* ── About modal ── */
+.about-overlay { display: none; position: fixed; inset: 0; z-index: 500; background: rgba(0,0,0,0.45); backdrop-filter: blur(4px); align-items: center; justify-content: center; padding: 1.5rem; }
+.about-overlay.open { display: flex; }
+.about-modal { background: white; border-radius: 20px; padding: 2.5rem 2rem 2rem; max-width: 520px; width: 100%; box-shadow: 0 24px 64px rgba(0,0,0,0.2); position: relative; animation: fadeUp .3s ease both; }
+.about-close { position: absolute; top: 1.2rem; right: 1.2rem; width: 32px; height: 32px; border: none; background: var(--surface2); border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--text-muted); transition: all .15s; }
+.about-close:hover { background: var(--border); color: var(--text); }
+.about-badge { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; background: var(--accent-light); border: 1px solid rgba(29,185,84,.3); border-radius: 20px; font-size: 11px; font-weight: 600; color: var(--accent-dark); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 1rem; }
+.about-title { font-family: 'Manrope', sans-serif; font-weight: 800; font-size: 1.5rem; color: var(--text); margin-bottom: .5rem; }
+.about-desc { font-size: 14px; color: var(--text-muted); line-height: 1.7; margin-bottom: 1.75rem; }
+.about-team-label { font-size: 11px; font-weight: 600; color: var(--text-hint); text-transform: uppercase; letter-spacing: .1em; margin-bottom: .85rem; }
+.about-team { display: flex; flex-direction: column; gap: 10px; }
+.about-member { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: var(--surface2); border-radius: 12px; border: 1.5px solid var(--border); }
+.about-avatar { width: 38px; height: 38px; border-radius: 50%; background: var(--btn-bg); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: white; flex-shrink: 0; font-family: 'Manrope', sans-serif; }
+.about-member-name { font-weight: 600; font-size: 14px; color: var(--text); }
+.about-member-role { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+
+/* ── Fixed bottom bar ── */
+.bottom-bar {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+  background: rgba(255,255,255,0.97);
+  backdrop-filter: blur(14px);
+  border-top: 1px solid var(--border);
+  padding: .9rem 1.5rem;
+  padding-bottom: calc(.9rem + env(safe-area-inset-bottom));
+}
+.bottom-bar-inner {
+  max-width: 600px; margin: 0 auto;
+  display: flex; align-items: center; gap: 12px;
+}
+.btn-back {
+  width: 44px; height: 44px; border-radius: 50%;
+  border: 1.5px solid var(--border); background: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-muted); transition: all .15s; flex-shrink: 0;
+}
+.btn-back:hover { border-color: var(--text); color: var(--text); background: var(--surface2); }
+.btn-back:disabled { opacity: .35; cursor: not-allowed; }
+.btn-next {
+  flex: 1; padding: 13px 24px;
+  background: var(--btn-bg); color: white;
+  border: none; border-radius: 24px;
+  font-family: 'Inter', sans-serif; font-size: 15px; font-weight: 600;
+  cursor: pointer; transition: opacity .15s, transform .1s;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn-next:hover { opacity: .88; }
+.btn-next:active { transform: scale(.98); }
+.btn-next.finish { background: var(--accent); }
+.btn-next.finish:hover { background: var(--accent-dark); }
+.step-counter-text {
+  font-size: 12px; color: var(--text-hint); font-weight: 500; text-align: right;
+  min-width: 44px; flex-shrink: 0;
+}
+
+/* ── Success screen ── */
+#successWrap { display: none; }
+.success-inner {
+  max-width: 520px; margin: 0 auto;
+  padding: 4rem 1.5rem 6rem; text-align: center;
+}
+.success-icon-wrap {
+  width: 76px; height: 76px; margin: 0 auto 1.5rem;
+  background: var(--accent-light); border-radius: 50%;
+  border: 2px solid rgba(29,185,84,.2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 32px;
+}
+.success-icon-wrap svg { color: var(--accent); }
+.success-title { font-family: 'Manrope', sans-serif; font-weight: 800; font-size: 1.8rem; margin-bottom: .6rem; }
+.success-msg { font-size: 15px; color: var(--text-muted); line-height: 1.65; max-width: 380px; margin: 0 auto 2rem; }
+.success-details { background: var(--surface); border: 1.5px solid var(--border); border-radius: var(--radius); padding: 1.25rem 1.5rem; text-align: left; margin-bottom: 2rem; }
+.success-detail-item { display: flex; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.success-detail-item:last-child { border-bottom: none; }
+.success-detail-label { color: var(--text-muted); width: 100px; flex-shrink: 0; }
+.success-detail-val { color: var(--text); font-weight: 600; }
+.new-form-btn { padding: 12px 28px; background: var(--btn-bg); color: white; border: none; border-radius: 8px; font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; transition: opacity .15s; }
+.new-form-btn:hover { opacity: .85; }
+/* ── Splash screen ── */
+#splash {
+  position: fixed; inset: 0; z-index: 9999;
+  background: #0D0D0D;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 0;
+  pointer-events: none;
+}
+#splash.hide {
+  animation: splashFadeOut 0.6s cubic-bezier(.4,0,.2,1) 0.15s both;
+}
+@keyframes splashFadeOut {
+  from { opacity: 1; transform: scale(1); }
+  to   { opacity: 0; transform: scale(1.04); }
+}
+.splash-logo-wrap {
+  display: flex; align-items: center; gap: 14px;
+  animation: splashLogoIn 0.7s cubic-bezier(.2,0,.1,1) both;
+}
+@keyframes splashLogoIn {
+  from { opacity: 0; transform: translateY(18px) scale(0.92); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.splash-icon {
+  width: 52px; height: 52px; background: white; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 8px 32px rgba(255,255,255,0.15);
+}
+.splash-name {
+  font-family: 'Manrope', sans-serif; font-weight: 800;
+  font-size: 2.6rem; color: white; letter-spacing: -.01em;
+}
+.splash-tagline {
+  margin-top: 14px; font-size: 13px; color: rgba(255,255,255,0.4);
+  font-weight: 400; letter-spacing: .06em; text-transform: uppercase;
+  animation: splashTagIn 0.7s cubic-bezier(.2,0,.1,1) 0.2s both;
+}
+@keyframes splashTagIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.splash-bar {
+  margin-top: 36px; width: 48px; height: 3px;
+  background: rgba(255,255,255,0.15); border-radius: 99px; overflow: hidden;
+  animation: splashTagIn 0.5s ease 0.3s both;
+}
+.splash-bar-fill {
+  height: 100%; background: var(--accent); border-radius: 99px;
+  animation: splashProgress 1.6s cubic-bezier(.4,0,.2,1) 0.3s both;
+}
+@keyframes splashProgress {
+  from { width: 0%; }
+  to   { width: 100%; }
+}
+</style>
+</head>
+<body>
+
+<!-- Splash screen -->
+<div id="splash">
+  <div class="splash-logo-wrap">
+    <div class="splash-icon">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#0D0D0D" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="m2 17 10 5 10-5M2 12l10 5 10-5"/></svg>
+    </div>
+    <div class="splash-name">EventPlan</div>
+  </div>
+  <div class="splash-tagline">Every great event starts with a great plan</div>
+  <div class="splash-bar"><div class="splash-bar-fill"></div></div>
+</div>
+
+<!-- Navbar -->
+<nav class="navbar">
+  <a class="nav-logo" href="#">
+    <div class="nav-logo-dot">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="m2 17 10 5 10-5M2 12l10 5 10-5"/></svg>
+    </div>
+    EventPlan
+  </a>
+  <div class="nav-slogan">Every great event starts with a great plan ✦</div>
+  <button class="nav-about-btn" onclick="openAbout()">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+    About
+  </button>
+</nav>
+
+<!-- Step progress dots -->
+<div class="step-progress" id="stepProgress">
+  <div class="step-dot-wrap">
+    <div class="step-dot active" data-step="0" onclick="goToStep(0)">
+      <div class="step-dot-circle">1</div>
+      <div class="step-dot-label">Basics</div>
+    </div>
+    <div class="step-connector" id="conn-0"></div>
+    <div class="step-dot" data-step="1" onclick="goToStep(1)">
+      <div class="step-dot-circle">2</div>
+      <div class="step-dot-label">Date</div>
+    </div>
+    <div class="step-connector" id="conn-1"></div>
+    <div class="step-dot" data-step="2" onclick="goToStep(2)">
+      <div class="step-dot-circle">3</div>
+      <div class="step-dot-label">Location</div>
+    </div>
+    <div class="step-connector" id="conn-2"></div>
+    <div class="step-dot" data-step="3" onclick="goToStep(3)">
+      <div class="step-dot-circle">4</div>
+      <div class="step-dot-label">Guests</div>
+    </div>
+    <div class="step-connector" id="conn-3"></div>
+    <div class="step-dot" data-step="4" onclick="goToStep(4)">
+      <div class="step-dot-circle">5</div>
+      <div class="step-dot-label">Style</div>
+    </div>
+    <div class="step-connector" id="conn-4"></div>
+    <div class="step-dot" data-step="5" onclick="goToStep(5)">
+      <div class="step-dot-circle">6</div>
+      <div class="step-dot-label">Invite</div>
+    </div>
+  </div>
+</div>
+
+<!-- Wizard -->
+<div class="wizard-outer" id="formWrap">
+  <div class="wizard-viewport" id="wizardViewport">
+
+    <!-- Step 1: Event Basics -->
+    <div class="wizard-step">
+      <div class="step-inner">
+        <div class="step-eyebrow">Step 1 of 6</div>
+        <h1 class="step-title">Let's start with the basics</h1>
+        <p class="step-sub">What kind of event are you planning and who's organising it?</p>
+
+        <div class="field-row">
+          <div class="field-group" id="fg-type">
+            <label for="eventType">Event Type <span class="req">*</span></label>
+            <select id="eventType">
+              <option value="">Select event type…</option>
+              <option value="birthday">🎂 Birthday Party</option>
+              <option value="reunion">🎓 Class Reunion</option>
+              <option value="yearend">🎉 Year-End Party</option>
+              <option value="wedding">💍 Wedding</option>
+              <option value="corporate">🏢 Corporate Meeting</option>
+              <option value="anniversary">🥂 Anniversary</option>
+              <option value="baby_shower">🍼 Baby Shower</option>
+              <option value="graduation">🎓 Graduation</option>
+              <option value="other">✨ Other</option>
+            </select>
+            <div class="error-msg">Please select an event type.</div>
+          </div>
+          <div class="field-group" id="fg-organizer">
+            <label for="organizer">Your Name <span class="req">*</span></label>
+            <input type="text" id="organizer" placeholder="Full name" />
+            <div class="error-msg">Please enter your name.</div>
+          </div>
+        </div>
+        <div class="field-group" id="fg-email">
+          <label for="email">Email Address <span class="req">*</span></label>
+          <input type="email" id="email" placeholder="you@email.com" />
+          <div class="error-msg">Please enter a valid email address.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 2: Date & Time -->
+    <div class="wizard-step">
+      <div class="step-inner">
+        <div class="step-eyebrow">Step 2 of 6</div>
+        <h1 class="step-title">When is it happening?</h1>
+        <p class="step-sub">Pick the date, start time and how long it'll run.</p>
+
+        <div class="field-row">
+          <div class="field-group" id="fg-datetime">
+            <label for="eventDate">Date & Time <span class="req">*</span></label>
+            <input type="datetime-local" id="eventDate" />
+            <div class="error-msg">Please select a date and time.</div>
+          </div>
+          <div class="field-group">
+            <label for="duration">Duration</label>
+            <select id="duration">
+              <option value="2">2 hours</option>
+              <option value="3">3 hours</option>
+              <option value="4" selected>4 hours</option>
+              <option value="6">6 hours</option>
+              <option value="8">Full day (8h)</option>
+              <option value="custom">Custom…</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 3: Location -->
+    <div class="wizard-step">
+      <div class="step-inner">
+        <div class="step-eyebrow">Step 3 of 6</div>
+        <h1 class="step-title">Where will it be?</h1>
+        <p class="step-sub">Search for a venue, drop a pin, or type an address.</p>
+
+        <div class="field-group" id="fg-location">
+          <label>Venue / Address <span class="req">*</span></label>
+          <div class="gps-banner" id="gpsBanner">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+            <span id="gpsBannerText">Đang lấy vị trí hiện tại…</span>
+            <button class="gps-banner-close" id="gpsBannerClose">×</button>
+          </div>
+          <div class="location-search">
+            <svg class="location-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input type="text" id="locationInput" placeholder="Tìm địa điểm hoặc nhập địa chỉ…" autocomplete="off" />
+            <button class="location-clear" id="locationClear">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+            <div class="autocomplete-list" id="autocompleteList"></div>
+          </div>
+          <div class="selected-location" id="selectedLocation">
+            <svg class="sel-loc-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+            <div class="sel-loc-text">
+              <div class="sel-loc-name" id="selLocName">—</div>
+              <div class="sel-loc-addr" id="selLocAddr"></div>
+            </div>
+            <button class="sel-loc-change" id="changeLocation">Change</button>
+          </div>
+          <div class="error-msg" id="locationError">Please select a location.</div>
+          <div class="map-container">
+            <div class="map-placeholder" id="mapPlaceholder">
+              <div class="map-placeholder-icon">📍</div>
+              <div>Search to show map</div>
+              <div style="font-size:12px;color:var(--text-hint)">or click the map to pick a spot</div>
+            </div>
+            <div id="map"></div>
+            <button class="my-location-btn" id="myLocationBtn" title="My location">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+            </button>
+          </div>
+          <div class="api-notice">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            OpenStreetMap — free, no API key
+          </div>
+        </div>
+        <div class="field-group" style="margin-top:1rem">
+          <label for="locationNotes">Venue Notes</label>
+          <textarea id="locationNotes" placeholder="Parking, floor number, access instructions…" rows="2"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 4: Guests & Budget -->
+    <div class="wizard-step">
+      <div class="step-inner">
+        <div class="step-eyebrow">Step 4 of 6</div>
+        <h1 class="step-title">Guests & budget</h1>
+        <p class="step-sub">Rough estimates are fine — AI will optimise within your range.</p>
+
+        <div class="field-group" id="fg-guests">
+          <label>Expected Guests <span class="req">*</span></label>
+          <div class="counter-wrap">
+            <button class="counter-btn" id="guestMinus">−</button>
+            <input class="counter-val" type="number" id="guestCount" value="20" min="1" max="5000" />
+            <button class="counter-btn" id="guestPlus">+</button>
+          </div>
+          <div class="field-hint">Adjust for final headcount</div>
+          <div class="error-msg">Please enter number of guests.</div>
+        </div>
+        <div class="field-group" id="fg-budget">
+          <label>Estimated Budget <span class="req">*</span></label>
+          <div class="budget-row">
+            <select class="currency-select" id="currency">
+              <option value="VND">VND ₫</option>
+              <option value="USD">USD $</option>
+              <option value="EUR">EUR €</option>
+              <option value="GBP">GBP £</option>
+            </select>
+            <input type="number" class="budget-input" id="budget" placeholder="5,000,000" min="0" />
+          </div>
+          <div class="field-hint">AI will optimize suggestions within your budget</div>
+          <div class="error-msg">Please enter a budget amount.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 5: Style -->
+    <div class="wizard-step">
+      <div class="step-inner">
+        <div class="step-eyebrow">Step 5 of 6</div>
+        <h1 class="step-title">What's the vibe?</h1>
+        <p class="step-sub">Pick all that match your vision. The AI will tailor everything accordingly.</p>
+
+        <div class="field-group">
+          <div class="chips" id="styleChips">
+            <div class="chip" data-val="minimalist">🌿 Minimalist</div>
+            <div class="chip" data-val="luxury">✨ Luxury</div>
+            <div class="chip" data-val="cozy">🕯️ Cozy & Warm</div>
+            <div class="chip" data-val="creative">🎨 Creative</div>
+            <div class="chip" data-val="outdoor">🌿 Outdoor</div>
+            <div class="chip" data-val="vintage">📜 Vintage</div>
+            <div class="chip" data-val="modern">🔷 Modern</div>
+            <div class="chip" data-val="themed">🎭 Themed</div>
+          </div>
+        </div>
+        <div class="field-group" style="margin-top:1.5rem">
+          <label for="specialReqs">Special Requirements</label>
+          <textarea id="specialReqs" placeholder="Dietary restrictions, accessibility needs, specific themes, entertainment preferences…"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step 6: Invitations -->
+    <div class="wizard-step">
+      <div class="step-inner">
+        <div class="step-eyebrow">Step 6 of 6</div>
+        <h1 class="step-title">Send invitations?</h1>
+        <p class="step-sub">Optional — we'll send a personalised invite to each guest via email.</p>
+
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Send email invitations</div>
+            <div class="toggle-sub">We'll send a personalised invite to each guest</div>
+          </div>
+          <label class="toggle-switch">
+            <input type="checkbox" id="inviteToggle" />
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+        <div class="invite-panel" id="invitePanel">
+          <div class="email-entry-header">
+            <span class="col-email">Email Address</span>
+            <span class="col-name">Name</span>
+          </div>
+          <div class="email-list" id="emailList"></div>
+          <button class="add-email-btn" id="addEmailBtn" type="button">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            Add recipient
+          </button>
+          <p class="invite-paste-hint">💡 Paste multiple emails at once (comma or newline separated) into the email field.</p>
+        </div>
+
+        <input type="hidden" id="sheetWebhookUrl" value="https://script.google.com/macros/s/AKfycbxqPS5mxww90ElrjIDog6luP0yQgv66h9u4ieWdWmHVM7e5VKibhlX8iuB2fj7Rcct42g/exec" />
+      </div>
+    </div>
+
+  </div><!-- /wizard-viewport -->
+</div><!-- /formWrap -->
+
+<!-- Success screen -->
+<div id="successWrap" style="margin-top:110px">
+  <div class="success-inner">
+    <div class="success-icon-wrap">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+    </div>
+    <h2 class="success-title">You're all set!</h2>
+    <p class="success-msg">Your event plan is being generated. Check your inbox for a complete plan with timeline, tasks, and calendar events.</p>
+    <div class="success-details" id="successDetails"></div>
+    <div id="submitStatus" style="text-align:center;margin-bottom:1rem;font-size:13px;min-height:20px;"></div>
+    <button class="new-form-btn" onclick="sessionStorage.setItem('skipSplash','1');location.reload()">Plan Another Event</button>
+  </div>
+</div>
+
+<!-- About Modal -->
+<div class="about-overlay" id="aboutOverlay" onclick="if(event.target===this)closeAbout()">
+  <div class="about-modal">
+    <button class="about-close" onclick="closeAbout()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <div class="about-badge">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="m2 17 10 5 10-5M2 12l10 5 10-5"/></svg>
+      EventPlan
+    </div>
+    <h2 class="about-title">About This Project</h2>
+    <p class="about-desc">EventPlan is a smart event planning tool designed to help you organise memorable events — from birthdays to corporate gatherings — with ease. Fill in your details and let the planner handle the rest.</p>
+    <div class="about-team-label">Designed & Built by</div>
+    <div class="about-team">
+      <div class="about-member">
+        <div class="about-avatar">NH</div>
+        <div>
+          <div class="about-member-name">Nguyễn Đình Hoàng</div>
+          <div class="about-member-role">UI/UX Designer &amp; Developer</div>
+        </div>
+      </div>
+      <div class="about-member">
+        <div class="about-avatar">KN</div>
+        <div>
+          <div class="about-member-name">Nguyễn Đình Khải Nguyên</div>
+          <div class="about-member-role">UI/UX Designer &amp; Developer</div>
+        </div>
+      </div>
+      <div class="about-member">
+        <div class="about-avatar">TĐ</div>
+        <div>
+          <div class="about-member-name">Đoàn Tuấn Đức</div>
+          <div class="about-member-role">UI/UX Designer &amp; Developer</div>
+        </div>
+      </div>
+      <div class="about-member">
+        <div class="about-avatar">NT</div>
+        <div>
+          <div class="about-member-name">Đào Nguyên Thắng</div>
+          <div class="about-member-role">UI/UX Designer &amp; Developer</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bottom nav bar -->
+<div class="bottom-bar" id="bottomBar">
+  <div class="bottom-bar-inner">
+    <button class="btn-back" id="btnBack" disabled onclick="prevStep()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+    </button>
+    <button class="btn-next" id="btnNext" onclick="nextStep()">
+      Continue
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+    </button>
+    <div class="step-counter-text" id="stepCounterText">1 / 6</div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ── Wizard state ──────────────────────────────────────
+const TOTAL_STEPS = 6;
+let currentStep = 0;
+
+const viewport = document.getElementById('wizardViewport');
+const btnBack  = document.getElementById('btnBack');
+const btnNext  = document.getElementById('btnNext');
+const stepCounterText = document.getElementById('stepCounterText');
+
+function goToStep(n) {
+  if (n < 0 || n >= TOTAL_STEPS) return;
+  currentStep = n;
+
+  // Show/hide steps via class
+  document.querySelectorAll('.wizard-step').forEach((step, i) => {
+    step.classList.toggle('active', i === n);
+  });
+
+  // Re-trigger fadeUp animation on active step-inner
+  const activeInner = document.querySelectorAll('.wizard-step')[n]?.querySelector('.step-inner');
+  if (activeInner) {
+    activeInner.style.animation = 'none';
+    requestAnimationFrame(() => { activeInner.style.animation = ''; });
+  }
+
+  // Update dots
+  document.querySelectorAll('.step-dot').forEach((dot, i) => {
+    dot.classList.remove('active', 'done');
+    if (i < n) dot.classList.add('done');
+    else if (i === n) dot.classList.add('active');
+    // update circle content
+    const circle = dot.querySelector('.step-dot-circle');
+    if (i < n) circle.innerHTML = `<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`;
+    else circle.textContent = i + 1;
+  });
+  for (let i = 0; i < TOTAL_STEPS - 1; i++) {
+    const c = document.getElementById('conn-' + i);
+    if (c) c.classList.toggle('done', i < n);
+  }
+
+  // Back button
+  btnBack.disabled = n === 0;
+
+  // Next button label
+  if (n === TOTAL_STEPS - 1) {
+    btnNext.innerHTML = '<span>✦</span> Generate My Event Plan';
+    btnNext.classList.add('finish');
+  } else {
+    btnNext.innerHTML = 'Continue <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>';
+    btnNext.classList.remove('finish');
+  }
+
+  stepCounterText.textContent = `${n + 1} / ${TOTAL_STEPS}`;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  // Invalidate map size when reaching step 3
+  if (n === 2 && map) setTimeout(() => map.invalidateSize(), 350);
+}
+
+function validateStep(step) {
+  if (step === 0) {
+    let ok = true;
+    ok = validateField('eventType', el => el.value !== '') && ok;
+    ok = validateField('organizer', el => el.value.trim() !== '') && ok;
+    ok = validateField('email', el => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(el.value)) && ok;
+    if (!ok) document.querySelector('.field-error input, .field-error select')?.focus();
+    return ok;
+  }
+  if (step === 1) {
+    return validateField('eventDate', el => el.value !== '');
+  }
+  if (step === 2) {
+    const locFg = document.getElementById('fg-location');
+    const locErr = document.getElementById('locationError');
+    if (!selectedPlace && !locationInput.value.trim()) {
+      locFg.classList.add('field-error');
+      locErr.style.display = 'block';
+      return false;
+    }
+    locFg.classList.remove('field-error');
+    locErr.style.display = 'none';
+    return true;
+  }
+  if (step === 3) {
+    let ok = true;
+    ok = validateField('budget', el => el.value && parseFloat(el.value) > 0) && ok;
+    return ok;
+  }
+  return true;
+}
+
+function nextStep() {
+  if (currentStep === TOTAL_STEPS - 1) { submitForm(); return; }
+  if (!validateStep(currentStep)) return;
+  goToStep(currentStep + 1);
+}
+
+function prevStep() {
+  if (currentStep > 0) goToStep(currentStep - 1);
+}
+
+// ── Leaflet Map ───────────────────────────────────────
+let map, marker, userLocationMarker, userAccuracyCircle, searchTimer;
+let selectedPlace = null;
+let selectedStyles = [];
+let userLatLng = null;
+
+map = L.map('map', { center: [16.4637, 107.5909], zoom: 6, zoomControl: true });
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  maxZoom: 19
+}).addTo(map);
+
+map.on('click', async function(e) {
+  const { lat, lng } = e.latlng;
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=vi`);
+    const data = await res.json();
+    selectPlace({ main: data.display_name.split(',')[0], secondary: data.display_name, lat, lng });
+  } catch {
+    selectPlace({ main: `${lat.toFixed(5)}, ${lng.toFixed(5)}`, secondary: 'Selected location', lat, lng });
+  }
+});
+
+// ── GPS ───────────────────────────────────────────────
+const gpsBanner     = document.getElementById('gpsBanner');
+const gpsBannerText = document.getElementById('gpsBannerText');
+const myLocationBtn = document.getElementById('myLocationBtn');
+
+document.getElementById('gpsBannerClose').addEventListener('click', () => gpsBanner.classList.remove('visible'));
+
+const blueDotIcon = L.divIcon({
+  className: '',
+  html: `<div style="width:14px;height:14px;background:#2196F3;border:2.5px solid white;border-radius:50%;box-shadow:0 0 0 3px rgba(33,150,243,.3);"></div>`,
+  iconSize: [14, 14], iconAnchor: [7, 7]
+});
+
+function showUserLocation(lat, lng, accuracy) {
+  userLatLng = { lat, lng };
+  if (userLocationMarker) map.removeLayer(userLocationMarker);
+  if (userAccuracyCircle) map.removeLayer(userAccuracyCircle);
+  userAccuracyCircle = L.circle([lat, lng], { radius: accuracy, color: '#2196F3', fillColor: '#2196F3', fillOpacity: .08, weight: 1, dashArray: '4' }).addTo(map);
+  userLocationMarker = L.marker([lat, lng], { icon: blueDotIcon, zIndexOffset: 500 }).addTo(map).bindPopup('<b>Your location</b>', { closeButton: false });
+  document.getElementById('mapPlaceholder').classList.add('hidden');
+}
+
+function requestUserLocation(panToUser = true) {
+  if (!navigator.geolocation) { gpsBannerText.textContent = 'GPS not supported.'; gpsBanner.classList.add('visible'); return; }
+  myLocationBtn.classList.add('loading');
+  gpsBannerText.textContent = 'Getting your location…';
+  gpsBanner.classList.add('visible');
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const { latitude: lat, longitude: lng, accuracy } = pos.coords;
+      myLocationBtn.classList.remove('loading');
+      showUserLocation(lat, lng, accuracy);
+      if (panToUser) map.setView([lat, lng], 15);
+      fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=vi`)
+        .then(r => r.json()).then(data => { gpsBannerText.textContent = `📍 Near: ${data.display_name.split(',').slice(0,3).join(',')}`; })
+        .catch(() => { gpsBannerText.textContent = `✓ Located (±${Math.round(accuracy)}m)`; });
+    },
+    err => {
+      myLocationBtn.classList.remove('loading');
+      const msgs = { 1:'Location permission denied.', 2:'Unable to determine location.', 3:'Location timeout.' };
+      gpsBannerText.textContent = msgs[err.code] || 'Could not get location.';
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+  );
+}
+
+myLocationBtn.addEventListener('click', () => requestUserLocation(true));
+
+window.addEventListener('load', () => {
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const { latitude: lat, longitude: lng, accuracy } = pos.coords;
+        showUserLocation(lat, lng, accuracy); userLatLng = { lat, lng };
+        map.setView([lat, lng], 13);
+        fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=vi`)
+          .then(r => r.json()).then(data => { gpsBannerText.textContent = `📍 Near: ${data.display_name.split(',').slice(0,3).join(',')}`; gpsBanner.classList.add('visible'); }).catch(() => {});
+      },
+      () => {},
+      { enableHighAccuracy: false, timeout: 6000, maximumAge: 120000 }
+    );
+  }
+});
+
+// ── Guest counter ─────────────────────────────────────
+document.getElementById('guestMinus').addEventListener('click', () => {
+  const v = parseInt(document.getElementById('guestCount').value) || 1;
+  document.getElementById('guestCount').value = Math.max(1, v - 1);
+});
+document.getElementById('guestPlus').addEventListener('click', () => {
+  const v = parseInt(document.getElementById('guestCount').value) || 1;
+  document.getElementById('guestCount').value = v + 1;
+});
+
+// ── Style chips ───────────────────────────────────────
+document.querySelectorAll('.chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    chip.classList.toggle('active');
+    const val = chip.dataset.val;
+    if (chip.classList.contains('active')) selectedStyles.push(val);
+    else selectedStyles = selectedStyles.filter(s => s !== val);
+  });
+});
+
+// ── Location autocomplete ─────────────────────────────
+const locationInput    = document.getElementById('locationInput');
+const autocompleteList = document.getElementById('autocompleteList');
+const locationClear    = document.getElementById('locationClear');
+const selectedLocationEl = document.getElementById('selectedLocation');
+
+function showSuggestions(items) {
+  autocompleteList.innerHTML = '';
+  if (!items.length) { autocompleteList.classList.remove('open'); return; }
+  items.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'autocomplete-item';
+    div.innerHTML = `<svg class="autocomplete-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg><div><div class="autocomplete-main">${item.main}</div><div class="autocomplete-sub">${item.secondary}</div></div>`;
+    div.addEventListener('click', () => selectPlace(item));
+    autocompleteList.appendChild(div);
+  });
+  autocompleteList.classList.add('open');
+}
+
+async function searchNominatim(q) {
+  if (!q) { autocompleteList.classList.remove('open'); return; }
+  try {
+    let url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=7&accept-language=vi&addressdetails=1`;
+    if (userLatLng) { const d = 0.5; url += `&viewbox=${[userLatLng.lng-d,userLatLng.lat-d,userLatLng.lng+d,userLatLng.lat+d].join(',')}&bounded=0`; }
+    const res = await fetch(url);
+    let data = await res.json();
+    if (!data.length) { const r2 = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5`); data = await r2.json(); }
+    if (userLatLng) data.sort((a,b) => Math.hypot(parseFloat(a.lat)-userLatLng.lat,parseFloat(a.lon)-userLatLng.lng) - Math.hypot(parseFloat(b.lat)-userLatLng.lat,parseFloat(b.lon)-userLatLng.lng));
+    showSuggestions(data.slice(0,5).map(r => { const p = r.display_name.split(','); return { main: p[0].trim(), secondary: p.slice(1,3).join(',').trim(), lat: parseFloat(r.lat), lng: parseFloat(r.lon) }; }));
+  } catch(e) { console.error(e); }
+}
+
+function selectPlace(place) {
+  locationInput.value = place.main;
+  autocompleteList.classList.remove('open');
+  locationClear.classList.add('visible');
+  document.getElementById('selLocName').textContent = place.main;
+  document.getElementById('selLocAddr').textContent = place.secondary || '';
+  selectedLocationEl.classList.add('visible');
+  selectedPlace = place;
+  document.getElementById('fg-location').classList.remove('field-error');
+  document.getElementById('locationError').style.display = 'none';
+  if (place.lat && place.lng) {
+    const ll = [place.lat, place.lng];
+    map.setView(ll, 16);
+    if (marker) marker.setLatLng(ll); else marker = L.marker(ll).addTo(map);
+    document.getElementById('mapPlaceholder').classList.add('hidden');
+  }
+}
+
+locationInput.addEventListener('input', function() {
+  const q = this.value.trim();
+  locationClear.classList.toggle('visible', q.length > 0);
+  if (!q) { autocompleteList.classList.remove('open'); return; }
+  if (searchTimer) clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => searchNominatim(q), 500);
+});
+locationInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); if (searchTimer) clearTimeout(searchTimer); searchNominatim(locationInput.value.trim()); } });
+locationClear.addEventListener('click', () => { locationInput.value = ''; locationClear.classList.remove('visible'); selectedLocationEl.classList.remove('visible'); autocompleteList.classList.remove('open'); selectedPlace = null; });
+document.getElementById('changeLocation').addEventListener('click', () => { selectedLocationEl.classList.remove('visible'); selectedPlace = null; locationInput.value = ''; locationInput.focus(); });
+document.addEventListener('click', e => { if (!e.target.closest('.location-search') && !e.target.closest('.autocomplete-list')) autocompleteList.classList.remove('open'); });
+
+// ── Email invitations ─────────────────────────────────
+let emailEntries = [];
+let emailEntryCounter = 0;
+const inviteToggle     = document.getElementById('inviteToggle');
+const invitePanel      = document.getElementById('invitePanel');
+const addEmailBtn      = document.getElementById('addEmailBtn');
+const emailList        = document.getElementById('emailList');
+const inviteCountBadge = document.getElementById('inviteCountBadge');
+
+function updateInviteCount() {
+  // Đọc thẳng từ DOM để đếm chính xác
+  let count = 0;
+  document.querySelectorAll('#emailList .email-entry-input').forEach(inp => {
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inp.value.trim())) count++;
+  });
+  inviteCountBadge.textContent = count;
+  inviteCountBadge.classList.toggle('visible', count > 0);
+}
+
+function createEmailEntry() {
+  const id = ++emailEntryCounter;
+  emailEntries.push({ id, email: '', name: '' });
+  const div = document.createElement('div');
+  div.className = 'email-entry';
+  div.innerHTML = `<input type="email" class="email-entry-input" placeholder="email@example.com" /><input type="text" class="email-entry-name" placeholder="Tên (tùy chọn)" /><button class="email-entry-remove" type="button"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>`;
+  const emailInput = div.querySelector('.email-entry-input');
+  const nameInput  = div.querySelector('.email-entry-name');
+  const removeBtn  = div.querySelector('.email-entry-remove');
+  emailInput.addEventListener('input', () => { const entry = emailEntries.find(e => e.id === id); if (entry) entry.email = emailInput.value; updateInviteCount(); });
+  emailInput.addEventListener('paste', e => {
+    setTimeout(() => {
+      const raw = emailInput.value; const parts = raw.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean);
+      if (parts.length > 1) { emailInput.value = parts[0]; const entry = emailEntries.find(e => e.id === id); if (entry) entry.email = parts[0]; parts.slice(1).forEach(() => createEmailEntry()); updateInviteCount(); setTimeout(() => { const inputs = emailList.querySelectorAll('.email-entry-input'); inputs[inputs.length-1]?.focus(); }, 50); }
+    }, 0);
+  });
+  nameInput.addEventListener('input', () => { const entry = emailEntries.find(e => e.id === id); if (entry) entry.name = nameInput.value; });
+  removeBtn.addEventListener('click', () => { emailEntries = emailEntries.filter(e => e.id !== id); div.remove(); updateInviteCount(); });
+  emailList.appendChild(div);
+  updateInviteCount();
+  return div;
+}
+
+inviteToggle.addEventListener('change', () => {
+  invitePanel.classList.toggle('open', inviteToggle.checked);
+  if (inviteToggle.checked && emailEntries.length === 0) { createEmailEntry(); setTimeout(() => emailList.querySelector('.email-entry-input')?.focus(), 100); }
+  updateInviteCount();
+});
+addEmailBtn.addEventListener('click', () => { const div = createEmailEntry(); setTimeout(() => div.querySelector('.email-entry-input')?.focus(), 50); });
+
+// ── Validation helper ─────────────────────────────────
+function validateField(id, check) {
+  const el = document.getElementById(id);
+  const fg = document.getElementById('fg-' + id) || el.closest('.field-group');
+  const err = fg ? fg.querySelector('.error-msg') : null;
+  if (!check(el)) {
+    if (fg) fg.classList.add('field-error');
+    if (err) err.style.display = 'block';
+    return false;
+  }
+  if (fg) fg.classList.remove('field-error');
+  if (err) err.style.display = 'none';
+  return true;
+}
+
+// ── Submit ────────────────────────────────────────────
+function submitForm() {
+  // Đọc trực tiếp từ DOM — đáng tin cậy hơn emailEntries array
+  const invitedEmails = [];
+  document.querySelectorAll('#emailList .email-entry').forEach(div => {
+    const emailVal = div.querySelector('.email-entry-input').value.trim();
+    const nameVal  = div.querySelector('.email-entry-name') ? div.querySelector('.email-entry-name').value.trim() : '';
+    if (emailVal && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
+      invitedEmails.push({ name: nameVal, email: emailVal });
+    }
+  });
+
+  const typeMap = { birthday:'Birthday Party', reunion:'Class Reunion', yearend:'Year-End Party', wedding:'Wedding', corporate:'Corporate Meeting', anniversary:'Anniversary', baby_shower:'Baby Shower', graduation:'Graduation', other:'Other' };
+  const typeVal  = document.getElementById('eventType').value;
+  const rawDate  = document.getElementById('eventDate').value;
+  const dateStr  = rawDate ? new Date(rawDate).toLocaleString('vi-VN', { dateStyle: 'medium', timeStyle: 'short' }) : '';
+  const budgetAmt = parseFloat(document.getElementById('budget').value).toLocaleString();
+  const currency  = document.getElementById('currency').value;
+  const guests    = document.getElementById('guestCount').value;
+  const locDisplay = selectedPlace ? selectedPlace.main : locationInput.value;
+  const styles    = selectedStyles.length ? selectedStyles.map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(', ') : '—';
+
+  const inviteRow = invitedEmails.length > 0
+    ? `<div class="success-detail-item"><span class="success-detail-label">Invitations</span><span class="success-detail-val" style="display:flex;flex-direction:column;gap:3px;"><span>${invitedEmails.length} recipient(s) ✉️</span>${invitedEmails.map(e => `<span style="font-size:12px;color:var(--text-muted);font-weight:400;">${e.name ? e.name+' — ' : ''}${e.email}</span>`).join('')}</span></div>` : '';
+
+  document.getElementById('successDetails').innerHTML = `
+    <div class="success-detail-item"><span class="success-detail-label">Event</span><span class="success-detail-val">${typeMap[typeVal] || typeVal}</span></div>
+    <div class="success-detail-item"><span class="success-detail-label">Date & Time</span><span class="success-detail-val">${dateStr}</span></div>
+    <div class="success-detail-item"><span class="success-detail-label">Location</span><span class="success-detail-val">${locDisplay}</span></div>
+    <div class="success-detail-item"><span class="success-detail-label">Guests</span><span class="success-detail-val">${guests} people</span></div>
+    <div class="success-detail-item"><span class="success-detail-label">Budget</span><span class="success-detail-val">${currency} ${budgetAmt}</span></div>
+    <div class="success-detail-item"><span class="success-detail-label">Style</span><span class="success-detail-val">${styles}</span></div>
+    ${inviteRow}`;
+
+  // Google Sheets
+  const SHEET_WEBHOOK = document.getElementById('sheetWebhookUrl').value.trim();
+  if (SHEET_WEBHOOK) {
+    const payload = { timestamp: new Date().toLocaleString('vi-VN'), eventType: typeMap[typeVal]||typeVal, organizer: document.getElementById('organizer').value.trim(), email: document.getElementById('email').value.trim(), dateTime: dateStr, duration: document.getElementById('duration').value+' giờ', location: locDisplay, locationAddr: selectedPlace ? selectedPlace.secondary : '', locationNotes: document.getElementById('locationNotes').value.trim(), guests, budget: document.getElementById('budget').value, currency, styles, specialReqs: document.getElementById('specialReqs').value.trim(), inviteCount: invitedEmails.length, inviteEmails: invitedEmails.map(e => (e.name ? e.name+' <'+e.email+'>' : e.email)).join('\n') };
+    fetch(`${SHEET_WEBHOOK}?data=${encodeURIComponent(JSON.stringify(payload))}`, { method: 'GET', mode: 'no-cors' }).catch(() => {});
+  }
+
+  document.getElementById('formWrap').style.display   = 'none';
+  document.getElementById('successWrap').style.display = 'block';
+  document.getElementById('bottomBar').style.display   = 'none';
+  document.getElementById('stepProgress').style.display = 'none';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function resetForm() {
+  // 1. Ẩn success, hiện lại form ngay
+  const successWrap = document.getElementById('successWrap');
+  const formWrap    = document.getElementById('formWrap');
+  const bottomBar   = document.getElementById('bottomBar');
+  const stepProg    = document.getElementById('stepProgress');
+
+  successWrap.style.display = 'none';
+  formWrap.style.display    = '';      // khôi phục CSS gốc (flex item)
+  bottomBar.style.display   = 'block';
+  stepProg.style.display    = 'flex';
+
+  // 2. Reset viewport ngay
+  document.querySelectorAll('.wizard-step').forEach((step, i) => {
+    step.classList.toggle('active', i === 0);
+  });
+
+  // 3. Xoá dữ liệu
+  document.querySelectorAll('input,select,textarea').forEach(el => {
+    if (el.type === 'checkbox' || el.type === 'radio') { el.checked = false; }
+    else if (el.tagName === 'SELECT') { el.selectedIndex = 0; }
+    else { el.value = ''; }
+  });
+  document.getElementById('eventType').value  = '';
+  document.getElementById('guestCount').value = 20;
+
+  // 4. Reset state
+  selectedPlace = null;
+  selectedStyles = [];
+  emailEntries = [];
+  emailEntryCounter = 0;
+
+  // 5. Reset invite panel
+  emailList.innerHTML = '';
+  invitePanel.classList.remove('open');
+  inviteCountBadge.classList.remove('visible');
+
+  // 6. Reset location
+  locationInput.value = '';
+  locationClear.classList.remove('visible');
+  selectedLocationEl.classList.remove('visible');
+
+  // 7. Reset chips
+  document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+
+  // 8. Reset map
+  try {
+    if (marker)            { map.removeLayer(marker); marker = null; }
+    if (userLocationMarker){ map.removeLayer(userLocationMarker); userLocationMarker = null; }
+    if (userAccuracyCircle){ map.removeLayer(userAccuracyCircle); userAccuracyCircle = null; }
+  } catch(e) {}
+  userLatLng = null;
+  document.getElementById('mapPlaceholder').classList.remove('hidden');
+  try { map.setView([16.4637, 107.5909], 6); } catch(e) {}
+
+  // 9. Force reset toàn bộ step indicator về trạng thái ban đầu
+  currentStep = 0;
+  document.querySelectorAll('.step-dot').forEach((dot, i) => {
+    dot.classList.remove('active', 'done');
+    if (i === 0) dot.classList.add('active');
+    const circle = dot.querySelector('.step-dot-circle');
+    if (circle) circle.textContent = i + 1;
+  });
+  for (let i = 0; i < 6; i++) {
+    const c = document.getElementById('conn-' + i);
+    if (c) c.classList.remove('done');
+  }
+  btnBack.disabled = true;
+  btnNext.innerHTML = 'Continue <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>';
+  btnNext.classList.remove('finish');
+  stepCounterText.textContent = '1 / 6';
+
+  // 10. Scroll lên đầu
+  window.scrollTo({ top: 0, behavior: 'instant' });
+  goToStep(0);
+}
+
+// ── About modal ───────────────────────────────────────
+function openAbout() { document.getElementById('aboutOverlay').classList.add('open'); }
+function closeAbout() { document.getElementById('aboutOverlay').classList.remove('open'); }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAbout(); });
+
+// Init
+goToStep(0);
+
+// ── Splash screen ──────────────────────────────────────
+(function() {
+  const splash = document.getElementById('splash');
+  if (sessionStorage.getItem('skipSplash')) {
+    sessionStorage.removeItem('skipSplash');
+    splash.style.display = 'none';
+    return;
+  }
+  setTimeout(() => {
+    splash.classList.add('hide');
+    setTimeout(() => { splash.style.display = 'none'; }, 750);
+  }, 2000);
+})();
+</script>
+</body>
+</html>
