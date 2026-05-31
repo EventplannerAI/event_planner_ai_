@@ -968,11 +968,25 @@ document.getElementById('guestPlus').addEventListener('click', () => {
 
 // ── Style chips ───────────────────────────────────────
 document.querySelectorAll('.chip').forEach(chip => {
-  chip.addEventListener('click', () => {
+  let blockClick = false;
+
+  function toggleChip() {
     chip.classList.toggle('active');
     const val = chip.dataset.val;
     if (chip.classList.contains('active')) selectedStyles.push(val);
     else selectedStyles = selectedStyles.filter(s => s !== val);
+  }
+
+  chip.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    blockClick = true;
+    toggleChip();
+    setTimeout(() => { blockClick = false; }, 300);
+  }, { passive: false });
+
+  chip.addEventListener('click', () => {
+    if (blockClick) return;
+    toggleChip();
   });
 });
 
